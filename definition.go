@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"regexp"
 
+	"golang.org/x/net/context"
+
 	"github.com/graphql-go/graphql/language/ast"
 )
 
@@ -498,7 +500,7 @@ type GQLFRParams struct {
 }
 
 // TODO: relook at FieldResolveFn params
-type FieldResolveFn func(p GQLFRParams) interface{}
+type FieldResolveFn func(ctx context.Context, p GQLFRParams) interface{}
 
 type ResolveInfo struct {
 	FieldName      string

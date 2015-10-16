@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"testing"
 
+	"golang.org/x/net/context"
+
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/gqlerrors"
 	"github.com/graphql-go/graphql/language/location"
@@ -103,7 +105,7 @@ func TestExecutesArbitraryCode(t *testing.T) {
 	}
 
 	// Schema Definitions
-	picResolverFn := func(p graphql.GQLFRParams) interface{} {
+	picResolverFn := func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 		// get and type assert ResolveFn for this field
 		picResolver, ok := p.Source.(map[string]interface{})["pic"].(func(size int) string)
 		if !ok {
@@ -244,19 +246,19 @@ func TestMergesParallelFragments(t *testing.T) {
 		Fields: graphql.FieldConfigMap{
 			"a": &graphql.FieldConfig{
 				Type: graphql.String,
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					return "Apple"
 				},
 			},
 			"b": &graphql.FieldConfig{
 				Type: graphql.String,
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					return "Banana"
 				},
 			},
 			"c": &graphql.FieldConfig{
 				Type: graphql.String,
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					return "Cherry"
 				},
 			},
@@ -264,7 +266,7 @@ func TestMergesParallelFragments(t *testing.T) {
 	})
 	deepTypeFieldConfig := &graphql.FieldConfig{
 		Type: typeObjectType,
-		Resolve: func(p graphql.GQLFRParams) interface{} {
+		Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 			return p.Source
 		},
 	}
@@ -312,7 +314,7 @@ func TestThreadsContextCorrectly(t *testing.T) {
 			Fields: graphql.FieldConfigMap{
 				"a": &graphql.FieldConfig{
 					Type: graphql.String,
-					Resolve: func(p graphql.GQLFRParams) interface{} {
+					Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 						resolvedContext = p.Source.(map[string]interface{})
 						return resolvedContext
 					},
@@ -368,7 +370,7 @@ func TestCorrectlyThreadsArguments(t *testing.T) {
 						},
 					},
 					Type: graphql.String,
-					Resolve: func(p graphql.GQLFRParams) interface{} {
+					Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 						resolvedArgs = p.Args
 						return resolvedArgs
 					},
@@ -944,7 +946,7 @@ func TestDoesNotIncludeArgumentsThatWereNotSet(t *testing.T) {
 							Type: graphql.Int,
 						},
 					},
-					Resolve: func(p graphql.GQLFRParams) interface{} {
+					Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 						args, _ := json.Marshal(p.Args)
 						return string(args)
 					},
@@ -1019,7 +1021,7 @@ func TestFailsWhenAnIsTypeOfCheckIsNotMet(t *testing.T) {
 		Fields: graphql.FieldConfigMap{
 			"value": &graphql.FieldConfig{
 				Type: graphql.String,
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					return p.Source.(testSpecialType).Value
 				},
 			},
@@ -1031,7 +1033,7 @@ func TestFailsWhenAnIsTypeOfCheckIsNotMet(t *testing.T) {
 			Fields: graphql.FieldConfigMap{
 				"specials": &graphql.FieldConfig{
 					Type: graphql.NewList(specialType),
-					Resolve: func(p graphql.GQLFRParams) interface{} {
+					Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 						return p.Source.(map[string]interface{})["specials"]
 					},
 				},

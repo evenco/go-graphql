@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"testing"
 
+	"golang.org/x/net/context"
+
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/language/ast"
 	"github.com/graphql-go/graphql/language/parser"
@@ -156,7 +158,7 @@ func init() {
 			"id": &graphql.FieldConfig{
 				Type:        graphql.NewNonNull(graphql.String),
 				Description: "The id of the human.",
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					if human, ok := p.Source.(StarWarsChar); ok {
 						return human.Id
 					}
@@ -166,7 +168,7 @@ func init() {
 			"name": &graphql.FieldConfig{
 				Type:        graphql.String,
 				Description: "The name of the human.",
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					if human, ok := p.Source.(StarWarsChar); ok {
 						return human.Name
 					}
@@ -176,7 +178,7 @@ func init() {
 			"friends": &graphql.FieldConfig{
 				Type:        graphql.NewList(characterInterface),
 				Description: "The friends of the human, or an empty list if they have none.",
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					if human, ok := p.Source.(StarWarsChar); ok {
 						return human.Friends
 					}
@@ -186,7 +188,7 @@ func init() {
 			"appearsIn": &graphql.FieldConfig{
 				Type:        graphql.NewList(episodeEnum),
 				Description: "Which movies they appear in.",
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					if human, ok := p.Source.(StarWarsChar); ok {
 						return human.AppearsIn
 					}
@@ -196,7 +198,7 @@ func init() {
 			"homePlanet": &graphql.FieldConfig{
 				Type:        graphql.String,
 				Description: "The home planet of the human, or null if unknown.",
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					if human, ok := p.Source.(StarWarsChar); ok {
 						return human.HomePlanet
 					}
@@ -215,7 +217,7 @@ func init() {
 			"id": &graphql.FieldConfig{
 				Type:        graphql.NewNonNull(graphql.String),
 				Description: "The id of the droid.",
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					if droid, ok := p.Source.(StarWarsChar); ok {
 						return droid.Id
 					}
@@ -225,7 +227,7 @@ func init() {
 			"name": &graphql.FieldConfig{
 				Type:        graphql.String,
 				Description: "The name of the droid.",
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					if droid, ok := p.Source.(StarWarsChar); ok {
 						return droid.Name
 					}
@@ -235,7 +237,7 @@ func init() {
 			"friends": &graphql.FieldConfig{
 				Type:        graphql.NewList(characterInterface),
 				Description: "The friends of the droid, or an empty list if they have none.",
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					if droid, ok := p.Source.(StarWarsChar); ok {
 						friends := []map[string]interface{}{}
 						for _, friend := range droid.Friends {
@@ -252,7 +254,7 @@ func init() {
 			"appearsIn": &graphql.FieldConfig{
 				Type:        graphql.NewList(episodeEnum),
 				Description: "Which movies they appear in.",
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					if droid, ok := p.Source.(StarWarsChar); ok {
 						return droid.AppearsIn
 					}
@@ -262,7 +264,7 @@ func init() {
 			"primaryFunction": &graphql.FieldConfig{
 				Type:        graphql.String,
 				Description: "The primary function of the droid.",
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					if droid, ok := p.Source.(StarWarsChar); ok {
 						return droid.PrimaryFunction
 					}
@@ -287,7 +289,7 @@ func init() {
 						Type: episodeEnum,
 					},
 				},
-				Resolve: func(p graphql.GQLFRParams) (r interface{}) {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) (r interface{}) {
 					return GetHero(p.Args["episode"])
 				},
 			},
@@ -299,7 +301,7 @@ func init() {
 						Type:        graphql.NewNonNull(graphql.String),
 					},
 				},
-				Resolve: func(p graphql.GQLFRParams) (r interface{}) {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) (r interface{}) {
 					return GetHuman(p.Args["id"].(int))
 				},
 			},
@@ -311,7 +313,7 @@ func init() {
 						Type:        graphql.NewNonNull(graphql.String),
 					},
 				},
-				Resolve: func(p graphql.GQLFRParams) (r interface{}) {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) (r interface{}) {
 					return GetDroid(p.Args["id"].(int))
 				},
 			},
@@ -357,7 +359,7 @@ func TestParse(t *testing.T, query string) *ast.Document {
 	return astDoc
 }
 func TestExecute(t *testing.T, ep graphql.ExecuteParams) *graphql.Result {
-	return graphql.Execute(ep)
+	return graphql.Execute(context.Background(), ep)
 }
 
 func Diff(a, b interface{}) []string {

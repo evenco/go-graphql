@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"golang.org/x/net/context"
+
 	"github.com/graphql-go/graphql"
 )
 
@@ -56,7 +58,7 @@ var queryType = graphql.NewObject(
 						Type: graphql.String,
 					},
 				},
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					idQuery, isOK := p.Args["id"].(string)
 					if isOK {
 						return data[idQuery]
@@ -74,7 +76,7 @@ var schema, _ = graphql.NewSchema(
 )
 
 func executeQuery(query string, schema graphql.Schema) *graphql.Result {
-	result := graphql.Graphql(graphql.Params{
+	result := graphql.Graphql(context.Background(), graphql.Params{
 		Schema:        schema,
 		RequestString: query,
 	})

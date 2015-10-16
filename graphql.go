@@ -1,6 +1,8 @@
 package graphql
 
 import (
+	"golang.org/x/net/context"
+
 	"github.com/graphql-go/graphql/gqlerrors"
 	"github.com/graphql-go/graphql/language/parser"
 	"github.com/graphql-go/graphql/language/source"
@@ -14,7 +16,7 @@ type Params struct {
 	OperationName  string
 }
 
-func Graphql(p Params) *Result {
+func Graphql(ctx context.Context, p Params) *Result {
 	source := source.NewSource(&source.Source{
 		Body: p.RequestString,
 		Name: "GraphQL request",
@@ -33,7 +35,7 @@ func Graphql(p Params) *Result {
 		}
 	}
 
-	return Execute(ExecuteParams{
+	return Execute(ctx, ExecuteParams{
 		Schema:        p.Schema,
 		Root:          p.RootObject,
 		AST:           AST,

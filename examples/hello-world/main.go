@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 
+	"golang.org/x/net/context"
+
 	"github.com/graphql-go/graphql"
 )
 
@@ -13,7 +15,7 @@ func main() {
 	fields := graphql.FieldConfigMap{
 		"hello": &graphql.FieldConfig{
 			Type: graphql.String,
-			Resolve: func(p graphql.GQLFRParams) interface{} {
+			Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 				return "world"
 			},
 		},
@@ -32,7 +34,7 @@ func main() {
 		}
 	`
 	params := graphql.Params{Schema: schema, RequestString: query}
-	r := graphql.Graphql(params)
+	r := graphql.Graphql(context.Background(), params)
 	if len(r.Errors) > 0 {
 		log.Fatalf("failed to execute graphql operation, errors: %+v", r.Errors)
 	}

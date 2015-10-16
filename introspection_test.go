@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 
+	"golang.org/x/net/context"
+
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/gqlerrors"
 	"github.com/graphql-go/graphql/language/location"
@@ -11,7 +13,7 @@ import (
 )
 
 func g(t *testing.T, p graphql.Params) *graphql.Result {
-	return graphql.Graphql(p)
+	return graphql.Graphql(context.Background(), p)
 }
 
 func TestIntrospection_ExecutesAnIntrospectionQuery(t *testing.T) {
@@ -768,7 +770,7 @@ func TestIntrospection_ExecutesAnInputObject(t *testing.T) {
 						Type: testInputObject,
 					},
 				},
-				Resolve: func(p graphql.GQLFRParams) interface{} {
+				Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 					return p.Args["complex"]
 				},
 			},

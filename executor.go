@@ -3,8 +3,12 @@ package graphql
 import (
 	"errors"
 	"fmt"
+	"log"
 	"reflect"
+	"runtime/debug"
 	"strings"
+
+	"golang.org/x/net/context"
 
 	"github.com/graphql-go/graphql/gqlerrors"
 	"github.com/graphql-go/graphql/language/ast"
@@ -18,7 +22,7 @@ type ExecuteParams struct {
 	Args          map[string]interface{}
 }
 
-func Execute(p ExecuteParams) (result *Result) {
+func Execute(ctx context.Context, p ExecuteParams) (result *Result) {
 	result = &Result{}
 
 	exeContext, err := buildExecutionContext(BuildExecutionCtxParams{
@@ -42,12 +46,13 @@ func Execute(p ExecuteParams) (result *Result) {
 			if r, ok := r.(error); ok {
 				err = gqlerrors.FormatError(r)
 			}
+			log.Println("Panic:", err, string(debug.Stack()))
 			exeContext.Errors = append(exeContext.Errors, gqlerrors.FormatError(err))
 			result.Errors = exeContext.Errors
 		}
 	}()
 
-	return executeOperation(ExecuteOperationParams{
+	return executeOperation(ctx, ExecuteOperationParams{
 		ExecutionContext: exeContext,
 		Root:             p.Root,
 		Operation:        exeContext.Operation,
@@ -133,7 +138,7 @@ type ExecuteOperationParams struct {
 	Operation        ast.Definition
 }
 
-func executeOperation(p ExecuteOperationParams) *Result {
+func executeOperation(ctx context.Context, p ExecuteOperationParams) *Result {
 	operationType, err := getOperationRootType(p.ExecutionContext.Schema, p.Operation)
 	if err != nil {
 		return &Result{Errors: gqlerrors.FormatErrors(err)}
@@ -153,9 +158,9 @@ func executeOperation(p ExecuteOperationParams) *Result {
 	}
 
 	if p.Operation.GetOperation() == "mutation" {
-		return executeFieldsSerially(executeFieldsParams)
+		return executeFieldsSerially(ctx, executeFieldsParams)
 	} else {
-		return executeFields(executeFieldsParams)
+		return executeFields(ctx, executeFieldsParams)
 	}
 }
 
@@ -187,7 +192,7 @@ type ExecuteFieldsParams struct {
 }
 
 // Implements the "Evaluating selection sets" section of the spec for "write" mode.
-func executeFieldsSerially(p ExecuteFieldsParams) *Result {
+func executeFieldsSerially(ctx context.Context, p ExecuteFieldsParams) *Result {
 	if p.Source == nil {
 		p.Source = map[string]interface{}{}
 	}
@@ -197,7 +202,7 @@ func executeFieldsSerially(p ExecuteFieldsParams) *Result {
 
 	finalResults := map[string]interface{}{}
 	for responseName, fieldASTs := range p.Fields {
-		resolved, state := resolveField(p.ExecutionContext, p.ParentType, p.Source, fieldASTs)
+		resolved, state := resolveField(ctx, p.ExecutionContext, p.ParentType, p.Source, fieldASTs)
 		if state.hasNoFieldDefs {
 			continue
 		}
@@ -211,7 +216,7 @@ func executeFieldsSerially(p ExecuteFieldsParams) *Result {
 }
 
 // Implements the "Evaluating selection sets" section of the spec for "read" mode.
-func executeFields(p ExecuteFieldsParams) *Result {
+func executeFields(ctx context.Context, p ExecuteFieldsParams) *Result {
 	if p.Source == nil {
 		p.Source = map[string]interface{}{}
 	}
@@ -221,7 +226,7 @@ func executeFields(p ExecuteFieldsParams) *Result {
 
 	finalResults := map[string]interface{}{}
 	for responseName, fieldASTs := range p.Fields {
-		resolved, state := resolveField(p.ExecutionContext, p.ParentType, p.Source, fieldASTs)
+		resolved, state := resolveField(ctx, p.ExecutionContext, p.ParentType, p.Source, fieldASTs)
 		if state.hasNoFieldDefs {
 			continue
 		}
@@ -432,7 +437,7 @@ type resolveFieldResultState struct {
  * then calls completeValue to complete promises, serialize scalars, or execute
  * the sub-selection-set for objects.
  */
-func resolveField(eCtx *ExecutionContext, parentType *Object, source interface{}, fieldASTs []*ast.Field) (result interface{}, resultState resolveFieldResultState) {
+func resolveField(ctx context.Context, eCtx *ExecutionContext, parentType *Object, source interface{}, fieldASTs []*ast.Field) (result interface{}, resultState resolveFieldResultState) {
 	// catch panic from resolveFn
 	var returnType Output
 	defer func() (interface{}, resolveFieldResultState) {
@@ -448,6 +453,7 @@ func resolveField(eCtx *ExecutionContext, parentType *Object, source interface{}
 			if r, ok := r.(error); ok {
 				err = gqlerrors.FormatError(r)
 			}
+			log.Println("Panic:", err, string(debug.Stack()))
 			// send panic upstream
 			if _, ok := returnType.(*NonNull); ok {
 				panic(gqlerrors.FormatError(err))
@@ -498,17 +504,22 @@ func resolveField(eCtx *ExecutionContext, parentType *Object, source interface{}
 	// it is wrapped as a Error with locations. Log this error and return
 	// null if allowed, otherwise throw the error so the parent field can handle
 	// it.
-	result = resolveFn(GQLFRParams{
+	result = resolveFn(ctx, GQLFRParams{
 		Source: source,
 		Args:   args,
 		Info:   info,
 	})
 
-	completed := completeValueCatchingError(eCtx, returnType, fieldASTs, info, result)
+	// TEMPORARY HACK
+	if rerr, ok := result.(error); ok {
+		log.Panic("Error during execution:", rerr)
+	}
+
+	completed := completeValueCatchingError(ctx, eCtx, returnType, fieldASTs, info, result)
 	return completed, resultState
 }
 
-func completeValueCatchingError(eCtx *ExecutionContext, returnType Type, fieldASTs []*ast.Field, info ResolveInfo, result interface{}) (completed interface{}) {
+func completeValueCatchingError(ctx context.Context, eCtx *ExecutionContext, returnType Type, fieldASTs []*ast.Field, info ResolveInfo, result interface{}) (completed interface{}) {
 	// catch panic
 	defer func() interface{} {
 		if r := recover(); r != nil {
@@ -517,6 +528,7 @@ func completeValueCatchingError(eCtx *ExecutionContext, returnType Type, fieldAS
 				panic(r)
 			}
 			if err, ok := r.(gqlerrors.FormattedError); ok {
+				log.Println("Panic:", err, string(debug.Stack()))
 				eCtx.Errors = append(eCtx.Errors, err)
 			}
 			return completed
@@ -525,10 +537,10 @@ func completeValueCatchingError(eCtx *ExecutionContext, returnType Type, fieldAS
 	}()
 
 	if returnType, ok := returnType.(*NonNull); ok {
-		completed := completeValue(eCtx, returnType, fieldASTs, info, result)
+		completed := completeValue(ctx, eCtx, returnType, fieldASTs, info, result)
 		return completed
 	}
-	completed = completeValue(eCtx, returnType, fieldASTs, info, result)
+	completed = completeValue(ctx, eCtx, returnType, fieldASTs, info, result)
 	resultVal := reflect.ValueOf(completed)
 	if resultVal.IsValid() && resultVal.Type().Kind() == reflect.Func {
 		if propertyFn, ok := completed.(func() interface{}); ok {
@@ -540,7 +552,7 @@ func completeValueCatchingError(eCtx *ExecutionContext, returnType Type, fieldAS
 	return completed
 }
 
-func completeValue(eCtx *ExecutionContext, returnType Type, fieldASTs []*ast.Field, info ResolveInfo, result interface{}) interface{} {
+func completeValue(ctx context.Context, eCtx *ExecutionContext, returnType Type, fieldASTs []*ast.Field, info ResolveInfo, result interface{}) interface{} {
 
 	// TODO: explore resolving go-routines in completeValue
 
@@ -554,7 +566,7 @@ func completeValue(eCtx *ExecutionContext, returnType Type, fieldASTs []*ast.Fie
 	}
 
 	if returnType, ok := returnType.(*NonNull); ok {
-		completed := completeValue(eCtx, returnType.OfType, fieldASTs, info, result)
+		completed := completeValue(ctx, eCtx, returnType.OfType, fieldASTs, info, result)
 		if completed == nil {
 			err := NewLocatedError(
 				fmt.Sprintf("Cannot return null for non-nullable field %v.%v.", info.ParentType, info.FieldName),
@@ -585,7 +597,7 @@ func completeValue(eCtx *ExecutionContext, returnType Type, fieldASTs []*ast.Fie
 		completedResults := []interface{}{}
 		for i := 0; i < resultVal.Len(); i++ {
 			val := resultVal.Index(i).Interface()
-			completedItem := completeValueCatchingError(eCtx, itemType, fieldASTs, info, val)
+			completedItem := completeValueCatchingError(ctx, eCtx, itemType, fieldASTs, info, val)
 			completedResults = append(completedResults, completedItem)
 		}
 		return completedResults
@@ -668,13 +680,13 @@ func completeValue(eCtx *ExecutionContext, returnType Type, fieldASTs []*ast.Fie
 		Source:           result,
 		Fields:           subFieldASTs,
 	}
-	results := executeFields(executeFieldsParams)
+	results := executeFields(ctx, executeFieldsParams)
 
 	return results.Data
 
 }
 
-func defaultResolveFn(p GQLFRParams) interface{} {
+func defaultResolveFn(ctx context.Context, p GQLFRParams) interface{} {
 	// try to resolve p.Source as a struct first
 	sourceVal := reflect.ValueOf(p.Source)
 	if sourceVal.IsValid() && sourceVal.Type().Kind() == reflect.Ptr {

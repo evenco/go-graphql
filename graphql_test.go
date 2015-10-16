@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 
+	"golang.org/x/net/context"
+
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/testutil"
 )
@@ -82,7 +84,7 @@ func TestQuery(t *testing.T) {
 }
 
 func testGraphql(test T, p graphql.Params, t *testing.T) {
-	result := graphql.Graphql(p)
+	result := graphql.Graphql(context.Background(), p)
 	if len(result.Errors) > 0 {
 		t.Fatalf("wrong result, unexpected errors: %v", result.Errors)
 	}
@@ -94,7 +96,7 @@ func testGraphql(test T, p graphql.Params, t *testing.T) {
 func TestBasicGraphQLExample(t *testing.T) {
 	// taken from `graphql-js` README
 
-	helloFieldResolved := func(p graphql.GQLFRParams) interface{} {
+	helloFieldResolved := func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 		return "world"
 	}
 
@@ -119,7 +121,7 @@ func TestBasicGraphQLExample(t *testing.T) {
 		"hello": "world",
 	}
 
-	result := graphql.Graphql(graphql.Params{
+	result := graphql.Graphql(context.Background(), graphql.Params{
 		Schema:        schema,
 		RequestString: query,
 	})

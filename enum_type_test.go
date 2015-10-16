@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 
+	"golang.org/x/net/context"
+
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/gqlerrors"
 	"github.com/graphql-go/graphql/testutil"
@@ -39,7 +41,7 @@ var enumTypeTestQueryType = graphql.NewObject(graphql.ObjectConfig{
 					Type: graphql.String,
 				},
 			},
-			Resolve: func(p graphql.GQLFRParams) interface{} {
+			Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 				if fromInt, ok := p.Args["fromInt"]; ok {
 					return fromInt
 				}
@@ -62,7 +64,7 @@ var enumTypeTestQueryType = graphql.NewObject(graphql.ObjectConfig{
 					Type: graphql.Int,
 				},
 			},
-			Resolve: func(p graphql.GQLFRParams) interface{} {
+			Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 				if fromInt, ok := p.Args["fromInt"]; ok {
 					return fromInt
 				}
@@ -84,7 +86,7 @@ var enumTypeTestMutationType = graphql.NewObject(graphql.ObjectConfig{
 					Type: enumTypeTestColorType,
 				},
 			},
-			Resolve: func(p graphql.GQLFRParams) interface{} {
+			Resolve: func(ctx context.Context, p graphql.GQLFRParams) interface{} {
 				if color, ok := p.Args["color"]; ok {
 					return color
 				}
