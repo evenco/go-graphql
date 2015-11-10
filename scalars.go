@@ -21,6 +21,12 @@ func coerceInt(value interface{}) interface{} {
 		return int(0)
 	case int:
 		return value
+	case uint:
+		return intOrNil(int(value))
+	case int64:
+		return intOrNil(int(value))
+	case uint64:
+		return intOrNil(int(value))
 	case float32:
 		return intOrNil(int(value))
 	case float64:
@@ -32,7 +38,7 @@ func coerceInt(value interface{}) interface{} {
 		}
 		return coerceInt(val)
 	}
-	return int(0)
+	return coerceInt(fmt.Sprintf("%v", value))
 }
 
 // Integers are only safe when between -(2^53 - 1) and 2^53 - 1 due to being
