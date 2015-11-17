@@ -7,8 +7,8 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/graphql-go/graphql"
-	"github.com/graphql-go/graphql/testutil"
+	"github.com/evenco/go-graphql"
+	"github.com/evenco/go-graphql/testutil"
 )
 
 // TODO: have a separate package for other tests for eg `parser`

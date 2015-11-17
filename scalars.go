@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/graphql-go/graphql/language/ast"
+	"github.com/evenco/go-graphql/language/ast"
 )
 
 var (

@@ -10,8 +10,8 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/graphql-go/graphql/gqlerrors"
-	"github.com/graphql-go/graphql/language/ast"
+	"github.com/evenco/go-graphql/gqlerrors"
+	"github.com/evenco/go-graphql/language/ast"
 )
 
 type ExecuteParams struct {
@@ -511,8 +511,9 @@ func resolveField(ctx context.Context, eCtx *ExecutionContext, parentType *Objec
 	})
 
 	// TEMPORARY HACK
-	if rerr, ok := result.(error); ok {
-		log.Panic("Error during execution:", rerr)
+	if err, ok := result.(error); ok {
+		eCtx.Errors = append(eCtx.Errors, gqlerrors.FormatError(err))
+		result = nil
 	}
 
 	completed := completeValueCatchingError(ctx, eCtx, returnType, fieldASTs, info, result)

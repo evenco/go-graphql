@@ -8,10 +8,10 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/graphql-go/graphql"
-	"github.com/graphql-go/graphql/gqlerrors"
-	"github.com/graphql-go/graphql/language/location"
-	"github.com/graphql-go/graphql/testutil"
+	"github.com/evenco/go-graphql"
+	"github.com/evenco/go-graphql/gqlerrors"
+	"github.com/evenco/go-graphql/language/location"
+	"github.com/evenco/go-graphql/testutil"
 )
 
 func TestExecutesArbitraryCode(t *testing.T) {

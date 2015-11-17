@@ -6,8 +6,8 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/graphql-go/graphql/language/ast"
-	"github.com/graphql-go/graphql/language/printer"
+	"github.com/evenco/go-graphql/language/ast"
+	"github.com/evenco/go-graphql/language/printer"
 )
 
 const (

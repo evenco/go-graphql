@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/graphql-go/graphql"
-	"github.com/graphql-go/graphql/testutil"
+	"github.com/evenco/go-graphql"
+	"github.com/evenco/go-graphql/testutil"
 )
 
 var directivesTestSchema, _ = graphql.NewSchema(graphql.SchemaConfig{

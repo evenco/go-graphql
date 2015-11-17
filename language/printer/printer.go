@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/graphql-go/graphql/language/ast"
-	"github.com/graphql-go/graphql/language/visitor"
+	"github.com/evenco/go-graphql/language/ast"
+	"github.com/evenco/go-graphql/language/visitor"
 )
 
 func getMapValue(m map[string]interface{}, key string) interface{} {
