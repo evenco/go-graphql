@@ -36,7 +36,7 @@ func Execute(ctx context.Context, p ExecuteParams) (result *Result) {
 	})
 
 	if err != nil {
-		result.Errors = append(result.Errors, gqlerrors.FormatError(err))
+		result.Errors = append(result.Errors, gqlerrors.FormatError(ctx, err))
 		return
 	}
 
@@ -44,10 +44,10 @@ func Execute(ctx context.Context, p ExecuteParams) (result *Result) {
 		if r := recover(); r != nil {
 			var err error
 			if r, ok := r.(error); ok {
-				err = gqlerrors.FormatError(r)
+				err = gqlerrors.FormatError(ctx, r)
 			}
 			log.Println("Panic:", err, string(debug.Stack()))
-			exeContext.Errors = append(exeContext.Errors, gqlerrors.FormatError(err))
+			exeContext.Errors = append(exeContext.Errors, gqlerrors.FormatError(ctx, err))
 			result.Errors = exeContext.Errors
 		}
 	}()
@@ -141,7 +141,7 @@ type ExecuteOperationParams struct {
 func executeOperation(ctx context.Context, p ExecuteOperationParams) *Result {
 	operationType, err := getOperationRootType(p.ExecutionContext.Schema, p.Operation)
 	if err != nil {
-		return &Result{Errors: gqlerrors.FormatErrors(err)}
+		return &Result{Errors: gqlerrors.FormatErrors(ctx, err)}
 	}
 
 	fields := collectFields(CollectFieldsParams{
@@ -451,14 +451,14 @@ func resolveField(ctx context.Context, eCtx *ExecutionContext, parentType *Objec
 				)
 			}
 			if r, ok := r.(error); ok {
-				err = gqlerrors.FormatError(r)
+				err = gqlerrors.FormatError(ctx, r)
 			}
 			log.Println("Panic:", err, string(debug.Stack()))
 			// send panic upstream
 			if _, ok := returnType.(*NonNull); ok {
-				panic(gqlerrors.FormatError(err))
+				panic(gqlerrors.FormatError(ctx, err))
 			}
-			eCtx.Errors = append(eCtx.Errors, gqlerrors.FormatError(err))
+			eCtx.Errors = append(eCtx.Errors, gqlerrors.FormatError(ctx, err))
 			return result, resultState
 		}
 		return result, resultState
@@ -510,9 +510,9 @@ func resolveField(ctx context.Context, eCtx *ExecutionContext, parentType *Objec
 		Info:   info,
 	})
 
-	// TEMPORARY HACK
+	// resolve gracefully
 	if err, ok := result.(error); ok {
-		eCtx.Errors = append(eCtx.Errors, gqlerrors.FormatError(err))
+		eCtx.Errors = append(eCtx.Errors, gqlerrors.FormatError(ctx, err))
 		result = nil
 	}
 
@@ -547,8 +547,8 @@ func completeValueCatchingError(ctx context.Context, eCtx *ExecutionContext, ret
 		if propertyFn, ok := completed.(func() interface{}); ok {
 			return propertyFn()
 		}
-		err := gqlerrors.NewFormattedError("Error resolving func. Expected `func() interface{}` signature")
-		panic(gqlerrors.FormatError(err))
+		err := gqlerrors.NewFormattedError(ctx, "Error resolving func. Expected `func() interface{}` signature")
+		panic(gqlerrors.FormatError(ctx, err))
 	}
 	return completed
 }
@@ -562,8 +562,8 @@ func completeValue(ctx context.Context, eCtx *ExecutionContext, returnType Type,
 		if propertyFn, ok := result.(func() interface{}); ok {
 			return propertyFn()
 		}
-		err := gqlerrors.NewFormattedError("Error resolving func. Expected `func() interface{}` signature")
-		panic(gqlerrors.FormatError(err))
+		err := gqlerrors.NewFormattedError(ctx, "Error resolving func. Expected `func() interface{}` signature")
+		panic(gqlerrors.FormatError(ctx, err))
 	}
 
 	if returnType, ok := returnType.(*NonNull); ok {
@@ -573,7 +573,7 @@ func completeValue(ctx context.Context, eCtx *ExecutionContext, returnType Type,
 				fmt.Sprintf("Cannot return null for non-nullable field %v.%v.", info.ParentType, info.FieldName),
 				FieldASTsToNodeASTs(fieldASTs),
 			)
-			panic(gqlerrors.FormatError(err))
+			panic(gqlerrors.FormatError(ctx, err))
 		}
 		return completed
 	}
@@ -591,7 +591,7 @@ func completeValue(ctx context.Context, eCtx *ExecutionContext, returnType Type,
 			"User Error: expected iterable, but did not find one.",
 		)
 		if err != nil {
-			panic(gqlerrors.FormatError(err))
+			panic(gqlerrors.FormatError(ctx, err))
 		}
 
 		itemType := returnType.OfType
@@ -609,7 +609,7 @@ func completeValue(ctx context.Context, eCtx *ExecutionContext, returnType Type,
 	if returnType, ok := returnType.(*Scalar); ok {
 		err := invariant(returnType.Serialize != nil, "Missing serialize method on type")
 		if err != nil {
-			panic(gqlerrors.FormatError(err))
+			panic(gqlerrors.FormatError(ctx, err))
 		}
 		serializedResult := returnType.Serialize(result)
 		if isNullish(serializedResult) {
@@ -620,7 +620,7 @@ func completeValue(ctx context.Context, eCtx *ExecutionContext, returnType Type,
 	if returnType, ok := returnType.(*Enum); ok {
 		err := invariant(returnType.Serialize != nil, "Missing serialize method on type")
 		if err != nil {
-			panic(gqlerrors.FormatError(err))
+			panic(gqlerrors.FormatError(ctx, err))
 		}
 		serializedResult := returnType.Serialize(result)
 		if isNullish(serializedResult) {
@@ -637,7 +637,7 @@ func completeValue(ctx context.Context, eCtx *ExecutionContext, returnType Type,
 	case Abstract:
 		objectType = returnType.GetObjectType(result, info)
 		if objectType != nil && !returnType.IsPossibleType(objectType) {
-			panic(gqlerrors.NewFormattedError(
+			panic(gqlerrors.NewFormattedError(ctx,
 				fmt.Sprintf(`Runtime Object type "%v" is not a possible type `+
 					`for "%v".`, objectType, returnType),
 			))
@@ -651,7 +651,7 @@ func completeValue(ctx context.Context, eCtx *ExecutionContext, returnType Type,
 	// current result. If isTypeOf returns false, then raise an error rather
 	// than continuing execution.
 	if objectType.IsTypeOf != nil && !objectType.IsTypeOf(result, info) {
-		panic(gqlerrors.NewFormattedError(
+		panic(gqlerrors.NewFormattedError(ctx,
 			fmt.Sprintf(`Expected value of type "%v" but got: %T.`, objectType, result),
 		))
 	}

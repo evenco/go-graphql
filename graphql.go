@@ -24,7 +24,7 @@ func Graphql(ctx context.Context, p Params) *Result {
 	AST, err := parser.Parse(parser.ParseParams{Source: source})
 	if err != nil {
 		return &Result{
-			Errors: gqlerrors.FormatErrors(err),
+			Errors: gqlerrors.FormatErrors(ctx, err),
 		}
 	}
 	validationResult := ValidateDocument(p.Schema, AST)

@@ -6,6 +6,8 @@ import (
 	"math"
 	"reflect"
 
+	"golang.org/x/net/context"
+
 	"github.com/evenco/go-graphql/gqlerrors"
 	"github.com/evenco/go-graphql/language/ast"
 	"github.com/evenco/go-graphql/language/kinds"
@@ -392,7 +394,7 @@ func valueFromAST(valueAST ast.Value, ttype Input, variables map[string]interfac
 
 func invariant(condition bool, message string) error {
 	if !condition {
-		return gqlerrors.NewFormattedError(message)
+		return gqlerrors.NewFormattedError(context.Background(), message)
 	}
 	return nil
 }
