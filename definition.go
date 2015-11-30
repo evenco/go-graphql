@@ -8,6 +8,7 @@ import (
 
 	"golang.org/x/net/context"
 
+	"github.com/evenco/go-graphql/gqlerrors"
 	"github.com/evenco/go-graphql/language/ast"
 )
 
@@ -177,14 +178,12 @@ type ScalarConfig struct {
 
 func NewScalar(config ScalarConfig) *Scalar {
 	st := &Scalar{}
-	err := invariant(config.Name != "", "Type must be named.")
-	if err != nil {
-		st.err = err
+	if config.Name == "" {
+		st.err = gqlerrors.NewFormattedError(context.Background(), "Type must be named.")
 		return st
 	}
 
-	err = assertValidName(config.Name)
-	if err != nil {
+	if err := assertValidName(config.Name); err != nil {
 		st.err = err
 		return st
 	}
@@ -192,25 +191,16 @@ func NewScalar(config ScalarConfig) *Scalar {
 	st.Name = config.Name
 	st.Description = config.Description
 
-	err = invariant(
-		config.Serialize != nil,
-		fmt.Sprintf(`%v must provide "serialize" function. If this custom Scalar is `+
+	if config.Serialize == nil {
+		st.err = gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`%v must provide "serialize" function. If this custom Scalar is `+
 			`also used as an input type, ensure "parseValue" and "parseLiteral" `+
-			`functions are also provided.`, st),
-	)
-	if err != nil {
-		st.err = err
+			`functions are also provided.`, st))
 		return st
 	}
-	if config.ParseValue != nil || config.ParseLiteral != nil {
-		err = invariant(
-			config.ParseValue != nil && config.ParseLiteral != nil,
-			fmt.Sprintf(`%v must provide both "parseValue" and "parseLiteral" functions.`, st),
-		)
-		if err != nil {
-			st.err = err
-			return st
-		}
+
+	if config.ParseValue == nil || config.ParseLiteral == nil {
+		st.err = gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`%v must provide both "parseValue" and "parseLiteral" functions.`, st))
+		return st
 	}
 
 	st.scalarConfig = config
@@ -312,13 +302,12 @@ type ObjectConfig struct {
 func NewObject(config ObjectConfig) *Object {
 	objectType := &Object{}
 
-	err := invariant(config.Name != "", "Type must be named.")
-	if err != nil {
-		objectType.err = err
+	if config.Name == "" {
+		objectType.err = gqlerrors.NewFormattedError(context.Background(), "Type must be named.")
 		return objectType
 	}
-	err = assertValidName(config.Name)
-	if err != nil {
+
+	if err := assertValidName(config.Name); err != nil {
 		objectType.err = err
 		return objectType
 	}
@@ -395,24 +384,14 @@ func defineInterfaces(ttype *Object, interfaces []*Interface) ([]*Interface, err
 		return ifaces, nil
 	}
 	for _, iface := range interfaces {
-		err := invariant(
-			iface != nil,
-			fmt.Sprintf(`%v may only implement Interface types, it cannot implement: %v.`, ttype, iface),
-		)
-		if err != nil {
-			return ifaces, err
+		if iface == nil {
+			return ifaces, gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`%v may only implement Interface types, it cannot implement: %v.`, ttype, iface))
 		}
-		if iface.ResolveType != nil {
-			err = invariant(
-				iface.ResolveType != nil,
-				fmt.Sprintf(`Interface Type %v does not provide a "resolveType" function `+
-					`and implementing Type %v does not provide a "isTypeOf" `+
-					`function. There is no way to resolve this implementing type `+
-					`during execution.`, iface, ttype),
-			)
-			if err != nil {
-				return ifaces, err
-			}
+		if iface.ResolveType == nil {
+			return ifaces, gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`Interface Type %v does not provide a "resolveType" function `+
+				`and implementing Type %v does not provide a "isTypeOf" `+
+				`function. There is no way to resolve this implementing type `+
+				`during execution.`, iface, ttype))
 		}
 		ifaces = append(ifaces, iface)
 	}
@@ -424,30 +403,21 @@ func defineFieldMap(ttype Named, fields FieldConfigMap) (FieldDefinitionMap, err
 
 	resultFieldMap := FieldDefinitionMap{}
 
-	err := invariant(
-		len(fields) > 0,
-		fmt.Sprintf(`%v fields must be an object with field names as keys or a function which return such an object.`, ttype),
-	)
-	if err != nil {
-		return resultFieldMap, err
+	if len(fields) == 0 {
+		return resultFieldMap, gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`%v fields must be an object with field names as keys or a function which return such an object.`, ttype))
 	}
 
 	for fieldName, field := range fields {
 		if field == nil {
 			continue
 		}
-		err = invariant(
-			field.Type != nil,
-			fmt.Sprintf(`%v.%v field type must be Output Type but got: %v.`, ttype, fieldName, field.Type),
-		)
-		if err != nil {
-			return resultFieldMap, err
+		if field.Type == nil {
+			return resultFieldMap, gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`%v.%v field type must be Output Type but got: %v.`, ttype, fieldName, field.Type))
 		}
 		if field.Type.GetError() != nil {
 			return resultFieldMap, field.Type.GetError()
 		}
-		err = assertValidName(fieldName)
-		if err != nil {
+		if err := assertValidName(fieldName); err != nil {
 			return resultFieldMap, err
 		}
 		fieldDef := &FieldDefinition{
@@ -460,23 +430,14 @@ func defineFieldMap(ttype Named, fields FieldConfigMap) (FieldDefinitionMap, err
 
 		fieldDef.Args = []*Argument{}
 		for argName, arg := range field.Args {
-			err := assertValidName(argName)
-			if err != nil {
+			if err := assertValidName(argName); err != nil {
 				return resultFieldMap, err
 			}
-			err = invariant(
-				arg != nil,
-				fmt.Sprintf(`%v.%v args must be an object with argument names as keys.`, ttype, fieldName),
-			)
-			if err != nil {
-				return resultFieldMap, err
+			if arg == nil {
+				return resultFieldMap, gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`%v.%v args must be an object with argument names as keys.`, ttype, fieldName))
 			}
-			err = invariant(
-				arg.Type != nil,
-				fmt.Sprintf(`%v.%v(%v:) argument type must be Input Type but got: %v.`, ttype, fieldName, argName, arg.Type),
-			)
-			if err != nil {
-				return resultFieldMap, err
+			if arg.Type == nil {
+				return resultFieldMap, gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`%v.%v(%v:) argument type must be Input Type but got: %v.`, ttype, fieldName, argName, arg.Type))
 			}
 			fieldArg := &Argument{
 				Name:         argName,
@@ -611,14 +572,11 @@ type ResolveTypeFn func(value interface{}, info ResolveInfo) *Object
 
 func NewInterface(config InterfaceConfig) *Interface {
 	it := &Interface{}
-
-	err := invariant(config.Name != "", "Type must be named.")
-	if err != nil {
-		it.err = err
+	if config.Name == "" {
+		it.err = gqlerrors.NewFormattedError(context.Background(), "Type must be named.")
 		return it
 	}
-	err = assertValidName(config.Name)
-	if err != nil {
+	if err := assertValidName(config.Name); err != nil {
 		it.err = err
 		return it
 	}
@@ -627,7 +585,6 @@ func NewInterface(config InterfaceConfig) *Interface {
 	it.ResolveType = config.ResolveType
 	it.typeConfig = config
 	it.implementations = []*Object{}
-
 	return it
 }
 
@@ -739,47 +696,36 @@ type UnionConfig struct {
 func NewUnion(config UnionConfig) *Union {
 	objectType := &Union{}
 
-	err := invariant(config.Name != "", "Type must be named.")
-	if err != nil {
+	if config.Name == "" {
+		objectType.err = gqlerrors.NewFormattedError(context.Background(), "Type must be named.")
+		return objectType
+	}
+
+	if err := assertValidName(config.Name); err != nil {
 		objectType.err = err
 		return objectType
 	}
-	err = assertValidName(config.Name)
-	if err != nil {
-		objectType.err = err
-		return objectType
-	}
+
 	objectType.Name = config.Name
 	objectType.Description = config.Description
 	objectType.ResolveType = config.ResolveType
 
-	err = invariant(
-		len(config.Types) > 0,
-		fmt.Sprintf(`Must provide Array of types for Union %v.`, config.Name),
-	)
-	if err != nil {
-		objectType.err = err
+	if len(config.Types) == 0 {
+		objectType.err = gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`Must provide Array of types for Union %v.`, config.Name))
 		return objectType
 	}
+
 	for _, ttype := range config.Types {
-		err := invariant(
-			ttype != nil,
-			fmt.Sprintf(`%v may only contain Object types, it cannot contain: %v.`, objectType, ttype),
-		)
-		if err != nil {
-			objectType.err = err
+		if ttype == nil {
+			objectType.err = gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`%v may only contain Object types, it cannot contain: %v.`, objectType, ttype))
 			return objectType
 		}
 		if objectType.ResolveType == nil {
-			err = invariant(
-				ttype.IsTypeOf != nil,
-				fmt.Sprintf(`Union Type %v does not provide a "resolveType" function `+
+			if ttype.IsTypeOf == nil {
+				objectType.err = gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`Union Type %v does not provide a "resolveType" function `+
 					`and possible Type %v does not provide a "isTypeOf" `+
 					`function. There is no way to resolve this possible type `+
-					`during execution.`, objectType, ttype),
-			)
-			if err != nil {
-				objectType.err = err
+					`during execution.`, objectType, ttype))
 				return objectType
 			}
 		}
@@ -905,25 +851,16 @@ func NewEnum(config EnumConfig) *Enum {
 func (gt *Enum) defineEnumValues(valueMap EnumValueConfigMap) ([]*EnumValueDefinition, error) {
 	values := []*EnumValueDefinition{}
 
-	err := invariant(
-		len(valueMap) > 0,
-		fmt.Sprintf(`%v values must be an object with value names as keys.`, gt),
-	)
-	if err != nil {
-		return values, err
+	if len(valueMap) == 0 {
+		return values, gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`%v values must be an object with value names as keys.`, gt))
 	}
 
 	for valueName, valueConfig := range valueMap {
-		err := invariant(
-			valueConfig != nil,
-			fmt.Sprintf(`%v.%v must refer to an object with a "value" key `+
-				`representing an internal value but got: %v.`, gt, valueName, valueConfig),
-		)
-		if err != nil {
-			return values, err
+		if valueConfig == nil {
+			return values, gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`%v.%v must refer to an object with a "value" key `+
+				`representing an internal value but got: %v.`, gt, valueName, valueConfig))
 		}
-		err = assertValidName(valueName)
-		if err != nil {
+		if err := assertValidName(valueName); err != nil {
 			return values, err
 		}
 		value := &EnumValueDefinition{
@@ -1069,9 +1006,9 @@ type InputObjectConfig struct {
 // TODO: rename InputObjectConfig to GraphQLInputObjecTypeConfig for consistency?
 func NewInputObject(config InputObjectConfig) *InputObject {
 	gt := &InputObject{}
-	err := invariant(config.Name != "", "Type must be named.")
-	if err != nil {
-		gt.err = err
+
+	if config.Name == "" {
+		gt.err = gqlerrors.NewFormattedError(context.Background(), "Type must be named.")
 		return gt
 	}
 
@@ -1092,12 +1029,8 @@ func (gt *InputObject) defineFieldMap() InputObjectFieldMap {
 	}
 	resultFieldMap := InputObjectFieldMap{}
 
-	err := invariant(
-		len(fieldMap) > 0,
-		fmt.Sprintf(`%v fields must be an object with field names as keys or a function which return such an object.`, gt),
-	)
-	if err != nil {
-		gt.err = err
+	if len(fieldMap) == 0 {
+		gt.err = gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`%v fields must be an object with field names as keys or a function which return such an object.`, gt))
 		return resultFieldMap
 	}
 
@@ -1109,12 +1042,8 @@ func (gt *InputObject) defineFieldMap() InputObjectFieldMap {
 		if err != nil {
 			continue
 		}
-		err = invariant(
-			fieldConfig.Type != nil,
-			fmt.Sprintf(`%v.%v field type must be Input Type but got: %v.`, gt, fieldName, fieldConfig.Type),
-		)
-		if err != nil {
-			gt.err = err
+		if fieldConfig.Type == nil {
+			gt.err = gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`%v.%v field type must be Input Type but got: %v.`, gt, fieldName, fieldConfig.Type))
 			return resultFieldMap
 		}
 		field := &InputObjectField{}
@@ -1169,9 +1098,8 @@ type List struct {
 func NewList(ofType Type) *List {
 	gl := &List{}
 
-	err := invariant(ofType != nil, fmt.Sprintf(`Can only create List of a Type but got: %v.`, ofType))
-	if err != nil {
-		gl.err = err
+	if ofType == nil {
+		gl.err = gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`Can only create List of a Type but got: %v.`, ofType))
 		return gl
 	}
 
@@ -1225,9 +1153,8 @@ func NewNonNull(ofType Type) *NonNull {
 	gl := &NonNull{}
 
 	_, isOfTypeNonNull := ofType.(*NonNull)
-	err := invariant(ofType != nil && !isOfTypeNonNull, fmt.Sprintf(`Can only create NonNull of a Nullable Type but got: %v.`, ofType))
-	if err != nil {
-		gl.err = err
+	if ofType == nil || isOfTypeNonNull {
+		gl.err = gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`Can only create NonNull of a Nullable Type but got: %v.`, ofType))
 		return gl
 	}
 	gl.OfType = ofType
@@ -1252,8 +1179,8 @@ func (gl *NonNull) GetError() error {
 var NAME_REGEXP, _ = regexp.Compile("^[_a-zA-Z][_a-zA-Z0-9]*$")
 
 func assertValidName(name string) error {
-	return invariant(
-		NAME_REGEXP.MatchString(name),
-		fmt.Sprintf(`Names must match /^[_a-zA-Z][_a-zA-Z0-9]*$/ but "%v" does not.`, name),
-	)
+	if !NAME_REGEXP.MatchString(name) {
+		return gqlerrors.NewFormattedError(context.Background(), fmt.Sprintf(`Names must match /^[_a-zA-Z][_a-zA-Z0-9]*$/ but "%v" does not.`, name))
+	}
+	return nil
 }

@@ -2,6 +2,9 @@ package graphql
 
 import (
 	"fmt"
+
+	"github.com/evenco/go-graphql/gqlerrors"
+	"golang.org/x/net/context"
 )
 
 /**
@@ -31,12 +34,13 @@ type Schema struct {
 
 func NewSchema(config SchemaConfig) (Schema, error) {
 	var err error
-
 	schema := Schema{}
 
-	err = invariant(config.Query != nil, "Schema query must be Object Type but got: nil.")
-	if err != nil {
-		return schema, err
+	if config.Query == nil {
+		return schema, gqlerrors.NewFormattedError(
+			context.Background(),
+			"Schema query must be Object Type but got: nil.",
+		)
 	}
 
 	// if schema config contains error at creation time, return those errors
@@ -134,12 +138,11 @@ func typeMapReducer(typeMap TypeMap, objectType Type) (TypeMap, error) {
 	}
 
 	if mappedObjectType, ok := typeMap[objectType.GetName()]; ok {
-		err := invariant(
-			mappedObjectType == objectType,
-			fmt.Sprintf(`Schema must contain unique named types but contains multiple types named "%v".`, objectType.GetName()),
-		)
-		if err != nil {
-			return typeMap, err
+		if mappedObjectType != objectType {
+			return typeMap, gqlerrors.NewFormattedError(
+				context.Background(),
+				fmt.Sprintf(`Schema must contain unique named types but contains multiple types named "%v".`, objectType.GetName()),
+			)
 		}
 		return typeMap, err
 	}
@@ -254,25 +257,22 @@ func assertObjectImplementsInterface(object *Object, iface *Interface) error {
 		ifaceField := ifaceFieldMap[fieldName]
 
 		// Assert interface field exists on object.
-		err := invariant(
-			objectField != nil,
-			fmt.Sprintf(`"%v" expects field "%v" but "%v" does not `+
-				`provide it.`, iface, fieldName, object),
-		)
-		if err != nil {
-			return err
+		if objectField == nil {
+			return gqlerrors.NewFormattedError(
+				context.Background(),
+				fmt.Sprintf(`"%v" expects field "%v" but "%v" does not provide it.`, iface, fieldName, object),
+			)
 		}
 
-		// Assert interface field type matches object field type. (invariant)
-		err = invariant(
-			isEqualType(ifaceField.Type, objectField.Type),
-			fmt.Sprintf(`%v.%v expects type "%v" but `+
-				`%v.%v provides type "%v".`,
-				iface, fieldName, ifaceField.Type,
-				object, fieldName, objectField.Type),
-		)
-		if err != nil {
-			return err
+		// Assert interface field type matches object field type.
+		if !isEqualType(ifaceField.Type, objectField.Type) {
+			return gqlerrors.NewFormattedError(
+				context.Background(),
+				fmt.Sprintf(`%v.%v expects type "%v" but `+
+					`%v.%v provides type "%v".`,
+					iface, fieldName, ifaceField.Type,
+					object, fieldName, objectField.Type),
+			)
 		}
 
 		// Assert each interface field arg is implemented.
@@ -286,32 +286,30 @@ func assertObjectImplementsInterface(object *Object, iface *Interface) error {
 				}
 			}
 			// Assert interface field arg exists on object field.
-			err = invariant(
-				objectArg != nil,
-				fmt.Sprintf(`%v.%v expects argument "%v" but `+
-					`%v.%v does not provide it.`,
-					iface, fieldName, argName,
-					object, fieldName),
-			)
-			if err != nil {
-				return err
+			if objectArg == nil {
+				return gqlerrors.NewFormattedError(
+					context.Background(),
+					fmt.Sprintf(`%v.%v expects argument "%v" but `+
+						`%v.%v does not provide it.`,
+						iface, fieldName, argName,
+						object, fieldName),
+				)
 			}
 
 			// Assert interface field arg type matches object field arg type.
-			// (invariant)
-			err = invariant(
-				isEqualType(ifaceArg.Type, objectArg.Type),
-				fmt.Sprintf(
-					`%v.%v(%v:) expects type "%v" `+
-						`but %v.%v(%v:) provides `+
-						`type "%v".`,
-					iface, fieldName, argName, ifaceArg.Type,
-					object, fieldName, argName, objectArg.Type),
-			)
-			if err != nil {
-				return err
+			if !isEqualType(ifaceArg.Type, objectArg.Type) {
+				return gqlerrors.NewFormattedError(
+					context.Background(),
+					fmt.Sprintf(
+						`%v.%v(%v:) expects type "%v" `+
+							`but %v.%v(%v:) provides `+
+							`type "%v".`,
+						iface, fieldName, argName, ifaceArg.Type,
+						object, fieldName, argName, objectArg.Type),
+				)
 			}
 		}
+
 		// Assert argument set invariance.
 		for _, objectArg := range objectField.Args {
 			argName := objectArg.Name
@@ -322,15 +320,14 @@ func assertObjectImplementsInterface(object *Object, iface *Interface) error {
 					break
 				}
 			}
-			err = invariant(
-				ifaceArg != nil,
-				fmt.Sprintf(`%v.%v does not define argument "%v" but `+
-					`%v.%v provides it.`,
-					iface, fieldName, argName,
-					object, fieldName),
-			)
-			if err != nil {
-				return err
+			if ifaceArg == nil {
+				return gqlerrors.NewFormattedError(
+					context.Background(),
+					fmt.Sprintf(`%v.%v does not define argument "%v" but `+
+						`%v.%v provides it.`,
+						iface, fieldName, argName,
+						object, fieldName),
+				)
 			}
 		}
 	}

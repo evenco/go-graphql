@@ -584,16 +584,10 @@ func completeValue(ctx context.Context, eCtx *ExecutionContext, returnType Type,
 
 	// If field type is List, complete each item in the list with the inner type
 	if returnType, ok := returnType.(*List); ok {
-
 		resultVal := reflect.ValueOf(result)
-		err := invariant(
-			resultVal.IsValid() && resultVal.Type().Kind() == reflect.Slice,
-			"User Error: expected iterable, but did not find one.",
-		)
-		if err != nil {
-			panic(gqlerrors.FormatError(ctx, err))
+		if !resultVal.IsValid() || resultVal.Type().Kind() != reflect.Slice {
+			panic(gqlerrors.NewFormattedError(ctx, "User Error: expected iterable, but did not find one."))
 		}
-
 		itemType := returnType.OfType
 		completedResults := []interface{}{}
 		for i := 0; i < resultVal.Len(); i++ {
@@ -607,9 +601,8 @@ func completeValue(ctx context.Context, eCtx *ExecutionContext, returnType Type,
 	// If field type is Scalar or Enum, serialize to a valid value, returning
 	// null if serialization is not possible.
 	if returnType, ok := returnType.(*Scalar); ok {
-		err := invariant(returnType.Serialize != nil, "Missing serialize method on type")
-		if err != nil {
-			panic(gqlerrors.FormatError(ctx, err))
+		if returnType.Serialize == nil {
+			panic(gqlerrors.NewFormattedError(ctx, "Missing serialize method on type"))
 		}
 		serializedResult := returnType.Serialize(result)
 		if isNullish(serializedResult) {
@@ -618,9 +611,8 @@ func completeValue(ctx context.Context, eCtx *ExecutionContext, returnType Type,
 		return serializedResult
 	}
 	if returnType, ok := returnType.(*Enum); ok {
-		err := invariant(returnType.Serialize != nil, "Missing serialize method on type")
-		if err != nil {
-			panic(gqlerrors.FormatError(ctx, err))
+		if returnType.Serialize == nil {
+			panic(gqlerrors.NewFormattedError(ctx, "Missing serialize method on type"))
 		}
 		serializedResult := returnType.Serialize(result)
 		if isNullish(serializedResult) {
