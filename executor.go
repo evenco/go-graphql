@@ -3,9 +3,7 @@ package graphql
 import (
 	"errors"
 	"fmt"
-	"log"
 	"reflect"
-	"runtime/debug"
 	"strings"
 
 	"golang.org/x/net/context"
@@ -46,7 +44,6 @@ func Execute(ctx context.Context, p ExecuteParams) (result *Result) {
 			if r, ok := r.(error); ok {
 				err = gqlerrors.FormatError(ctx, r)
 			}
-			log.Println("Panic:", err, string(debug.Stack()))
 			exeContext.Errors = append(exeContext.Errors, gqlerrors.FormatError(ctx, err))
 			result.Errors = exeContext.Errors
 		}
@@ -453,7 +450,6 @@ func resolveField(ctx context.Context, eCtx *ExecutionContext, parentType *Objec
 			if r, ok := r.(error); ok {
 				err = gqlerrors.FormatError(ctx, r)
 			}
-			log.Println("Panic:", err, string(debug.Stack()))
 			// send panic upstream
 			if _, ok := returnType.(*NonNull); ok {
 				panic(gqlerrors.FormatError(ctx, err))
@@ -529,7 +525,6 @@ func completeValueCatchingError(ctx context.Context, eCtx *ExecutionContext, ret
 				panic(r)
 			}
 			if err, ok := r.(gqlerrors.FormattedError); ok {
-				log.Println("Panic:", err, string(debug.Stack()))
 				eCtx.Errors = append(eCtx.Errors, err)
 			}
 			return completed
