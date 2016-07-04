@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 
 	"golang.org/x/net/context"
 
@@ -19,6 +20,26 @@ type Type interface {
 	String() string
 	GetError() error
 }
+
+// <Even>
+
+type TypeList []Type
+
+func (l TypeList) Len() int {
+	return len(l)
+}
+
+func (l TypeList) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+
+func (l TypeList) Less(i, j int) bool {
+	return l[i].GetName() < l[j].GetName()
+}
+
+var _ sort.Interface = TypeList{}
+
+// </Even>
 
 var _ Type = (*Scalar)(nil)
 var _ Type = (*Object)(nil)
@@ -447,6 +468,15 @@ func defineFieldMap(ttype Named, fields FieldConfigMap) (FieldDefinitionMap, err
 			}
 			fieldDef.Args = append(fieldDef.Args, fieldArg)
 		}
+
+		// <Even />
+
+		argList := ArgumentList(fieldDef.Args)
+		sort.Sort(argList)
+		fieldDef.Args = []*Argument(argList)
+
+		// </Even>
+
 		resultFieldMap[fieldName] = fieldDef
 	}
 	return resultFieldMap, nil
@@ -504,6 +534,26 @@ type FieldDefinition struct {
 	DeprecationReason string         `json:"deprecationReason"`
 }
 
+// <Even>
+
+type FieldDefinitionList []*FieldDefinition
+
+func (l FieldDefinitionList) Len() int {
+	return len(l)
+}
+
+func (l FieldDefinitionList) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+
+func (l FieldDefinitionList) Less(i, j int) bool {
+	return l[i].Name < l[j].Name
+}
+
+var _ sort.Interface = FieldDefinitionList{}
+
+// </Even>
+
 type FieldArgument struct {
 	Name         string      `json:"name"`
 	Type         Type        `json:"type"`
@@ -531,6 +581,26 @@ func (st *Argument) String() string {
 func (st *Argument) GetError() error {
 	return nil
 }
+
+// <Even>
+
+type ArgumentList []*Argument
+
+func (l ArgumentList) Len() int {
+	return len(l)
+}
+
+func (l ArgumentList) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+
+func (l ArgumentList) Less(i, j int) bool {
+	return l[i].Name < l[j].Name
+}
+
+var _ sort.Interface = ArgumentList{}
+
+// </Even>
 
 /**
  * Interface Type Definition
@@ -828,6 +898,26 @@ type EnumValueDefinition struct {
 	Description       string      `json:"description"`
 }
 
+// <Even>
+
+type EnumValueDefinitionList []*EnumValueDefinition
+
+func (l EnumValueDefinitionList) Len() int {
+	return len(l)
+}
+
+func (l EnumValueDefinitionList) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+
+func (l EnumValueDefinitionList) Less(i, j int) bool {
+	return l[i].Name < l[j].Name
+}
+
+var _ sort.Interface = EnumValueDefinitionList{}
+
+// </Even>
+
 func NewEnum(config EnumConfig) *Enum {
 	gt := &Enum{}
 	gt.enumConfig = config
@@ -874,6 +964,15 @@ func (gt *Enum) defineEnumValues(valueMap EnumValueConfigMap) ([]*EnumValueDefin
 		}
 		values = append(values, value)
 	}
+
+	// <Even>
+
+	valuesList := EnumValueDefinitionList(values)
+	sort.Sort(valuesList)
+	values = []*EnumValueDefinition(valuesList)
+
+	// </Even>
+
 	return values, nil
 }
 func (gt *Enum) GetValues() []*EnumValueDefinition {
@@ -993,6 +1092,26 @@ func (st *InputObjectField) String() string {
 func (st *InputObjectField) GetError() error {
 	return nil
 }
+
+// <Even>
+
+type InputObjectFieldList []*InputObjectField
+
+func (l InputObjectFieldList) Len() int {
+	return len(l)
+}
+
+func (l InputObjectFieldList) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+
+func (l InputObjectFieldList) Less(i, j int) bool {
+	return l[i].Name < l[j].Name
+}
+
+var _ sort.Interface = InputObjectFieldList{}
+
+// </Even>
 
 type InputObjectConfigFieldMap map[string]*InputObjectFieldConfig
 type InputObjectFieldMap map[string]*InputObjectField
