@@ -3,6 +3,7 @@ package graphql
 import (
 	"fmt"
 	"reflect"
+	"sort"
 
 	"golang.org/x/net/context"
 
@@ -240,6 +241,15 @@ mutation operations.`,
 						for _, ttype := range schema.GetTypeMap() {
 							results = append(results, ttype)
 						}
+
+						// <Even>
+
+						resultsList := TypeList(results)
+						sort.Sort(resultsList)
+						results = []Type(resultsList)
+
+						// </Even>
+
 						return results
 					}
 					return []Type{}
@@ -331,6 +341,15 @@ mutation operations.`,
 					}
 					fields = append(fields, field)
 				}
+
+				// <Even>
+
+				fieldsList := FieldDefinitionList(fields)
+				sort.Sort(fieldsList)
+				fields = []*FieldDefinition(fieldsList)
+
+				// </Even>
+
 				return fields
 			case *Interface:
 				if ttype == nil {
@@ -343,6 +362,15 @@ mutation operations.`,
 					}
 					fields = append(fields, field)
 				}
+
+				// <Even>
+
+				fieldsList := FieldDefinitionList(fields)
+				sort.Sort(fieldsList)
+				fields = []*FieldDefinition(fieldsList)
+
+				// </Even>
+
 				return fields
 			}
 			return nil
@@ -406,6 +434,15 @@ mutation operations.`,
 				for _, field := range ttype.GetFields() {
 					fields = append(fields, field)
 				}
+
+				// <Even>
+
+				fieldsList := InputObjectFieldList(fields)
+				sort.Sort(fieldsList)
+				fields = []*InputObjectField(fieldsList)
+
+				// </Even>
+
 				return fields
 			}
 			return nil
