@@ -28,27 +28,23 @@ func NewFormattedError(ctx context.Context, message string) FormattedError {
 }
 
 func FormatError(ctx context.Context, err error) FormattedError {
+	locations := []location.SourceLocation{}
 	switch err := err.(type) {
 	case FormattedError:
 		return err
 	case Error:
-		return FormattedError{
-			Message:   err.Error(),
-			Locations: err.Locations,
-		}
+		locations = err.Locations
 	case *Error:
-		return FormattedError{
-			Message:   err.Error(),
-			Locations: err.Locations,
-		}
+		locations = err.Locations
+	}
+	fmtErr := FormattedError{
+		Message:   err.Error(),
+		Locations: locations,
 	}
 	if Formatter != nil {
-		return Formatter(ctx, err)
+		fmtErr = Formatter(ctx, err)
 	}
-	return FormattedError{
-		Message:   err.Error(),
-		Locations: []location.SourceLocation{},
-	}
+	return fmtErr
 }
 
 func FormatErrors(ctx context.Context, errs ...error) []FormattedError {
